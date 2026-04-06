@@ -1,0 +1,40 @@
+// npm install ws
+const WebSocket = require("ws");
+
+const wss = new WebSocket.Server({ port: 3000 });
+
+let players = {};
+
+wss.on("connection", (ws) => {
+  const id = Math.random().toString(36).substr(2, 9);
+  players[id] = { x: 500, y: 300, hp: 100 };
+
+  ws.on("message", (msg) => {
+    const data = JSON.parse(msg);
+
+    if (data.type === "move") {
+      players[id].x = data.x;
+      players[id].y = data.y;
+    }
+
+    if (data.type === "shoot") {
+      // broadcast bullets
+      wss.clients.forEach(c => {
+        if (c.readyState === WebSocket.OPEN) {
+          c.send(JSON.stringify({ type: "shoot", ...data }));
+        }
+      });
+    }
+  });
+
+  ws.on("close", () => {
+    delete players[id];
+  });
+
+  // send updates
+  setInterval(() => {
+    ws.send(JSON.stringify({ type: "players", players }));
+  }, 50);
+});
+
+console.log("Server running on ws://localhost:3000");
